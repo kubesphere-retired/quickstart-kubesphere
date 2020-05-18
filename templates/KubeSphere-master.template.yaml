@@ -35,6 +35,14 @@ Metadata:
       - QSS3KeyPrefix
       - QSS3BucketRegion
       - LambdaZipsBucketName
+    - Label:
+        default: KubeSphere Quick Start True/False configuration
+      Parameters:
+      - Openpitrix  
+      - Devops
+      - Servicemesh
+      - Notification
+      - Alerting
     ParameterLabels:
       AvailabilityZones:
         default: Availability Zones
@@ -78,6 +86,16 @@ Metadata:
         default: Node group name
       NodeVolumeSize:
         default: Node volume size
+      Openpitrix:
+        default: Openpitrix  
+      Devops:
+        default: Devops
+      Servicemesh:
+        default: Servicemesh
+      Notification:
+        default: Notification
+      Alerting:
+        default: Alerting
 Parameters:
   AvailabilityZones:
     Description: List of Availability Zones to use for the subnets in the VPC. Three
@@ -167,9 +185,8 @@ Parameters:
     Description: "[OPTIONAL] Comma separated list of IAM users/roles to be granted admin access to the EKS cluster"
     Type: CommaDelimitedList
   NodeInstanceType:
-    Default: t2.medium
+    Default: t2.large
     AllowedValues:
-    - t2.small
     - t2.medium
     - t2.large
     - t2.xlarge
@@ -273,6 +290,31 @@ Parameters:
     AllowedValues: [ "1.15", "1.14", "1.13" ]
     Default: "1.15"
     Description: The Kubernetes control plane version.
+  Openpitrix:
+    Type: String
+    AllowedValues: [true, false]
+    Default: false
+    Description: '[OPTIONAL] OpenPitrix is an web-based open-source system to package, deploy and manage different types of applications'
+  Devops:
+    Type: String
+    AllowedValues: [true, false]
+    Default: false
+    Description: '[OPTIONAL] Provide out-of-box CI/CD based on Jenkins, and offers automated workflow tools including binary-to-image (B2I) and source-to-image (S2I)'
+  Servicemesh:
+    Type: String
+    AllowedValues: [true, false]
+    Default: false
+    Description: '[OPTIONAL] Provide fine-grained traffic management, observability and tracing for distributed microservice applications, provides visualization for traffic topology'
+  Notification:
+    Type: String
+    AllowedValues: [true, false]
+    Default: false
+    Description: '[OPTIONAL] Notification Manager manages notifications in multi-tenant K8s environment'
+  Alerting:
+    Type: String
+    AllowedValues: [true, false]
+    Default: false
+    Description: '[OPTIONAL] Alert is an enterprise-grade general-purpose high-performance alerting system'
   #KubeSphereLicenseKey:
   #  Type: String
   #  NoEcho: true
@@ -331,7 +373,7 @@ Resources:
     Type: AWS::CloudFormation::Stack
     Properties:
       TemplateURL: !Sub
-        - 'https://${S3Bucket}.s3.${S3Region}.amazonaws.com/ks/templates/KubeSphere.template.yaml'
+        - 'https://${S3Bucket}.s3.${S3Region}.amazonaws.com/ks/templates/kubesphere.template.yaml'
         - S3Region: !Ref QSS3BucketRegion
           S3Bucket: !Ref QSS3BucketName
       Parameters:
@@ -339,9 +381,19 @@ Resources:
         KubeConfigPath: !GetAtt EKSStack.Outputs.KubeConfigPath
         KubeConfigKmsContext: "EKSQuickStart"
         KubeClusterName: !GetAtt EKSStack.Outputs.EKSClusterName
+        KubeGetLambdaArn: !GetAtt EKSStack.Outputs.KubeGetLambdaArn
+        Openpitrix: !Ref Openpitrix
+        Devops: !Ref Devops
+        Servicemesh: !Ref Servicemesh
+        Notification: !Ref Notification
+        Alerting: !Ref Alerting
         #KubeSphereLicenseKey: !Ref KubeSphereLicenseKey
+
 Outputs:
   KubeConfigPath:
     Value: !GetAtt EKSStack.Outputs.KubeConfigPath
   BastionIP:
     Value: !GetAtt EKSStack.Outputs.BastionIP
+  KubeSphereConsoleEndpoint:
+    Value: !GetAtt KubeSphereStack.Outputs.KubeSphereConsole
+

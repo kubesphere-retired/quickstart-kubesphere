@@ -323,7 +323,7 @@ Resources:
     Type: AWS::CloudFormation::Stack
     Properties:
       TemplateURL: !Sub
-        - 'https://${S3Bucket}.s3.${S3Region}.amazonaws.com/ks/templates/KubeSphere-enable.template.yaml'
+        - 'https://${S3Bucket}.s3.${S3Region}.amazonaws.com/ks/templates/kubesphere.template.yaml'
         - S3Region: !Ref QSS3BucketRegion
           S3Bucket: !Ref QSS3BucketName
       Parameters:
@@ -331,6 +331,7 @@ Resources:
         KubeConfigPath: !GetAtt EKSStack.Outputs.KubeConfigPath
         KubeConfigKmsContext: "EKSQuickStart"
         KubeClusterName: !GetAtt EKSStack.Outputs.EKSClusterName
+        KubeGetLambdaArn: !GetAtt EKSStack.Outputs.KubeGetLambdaArn
         Openpitrix: !Ref Openpitrix
         Devops: !Ref Devops
         Servicemesh: !Ref Servicemesh

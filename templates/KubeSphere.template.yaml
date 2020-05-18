@@ -3,6 +3,8 @@ Description: Deploys Kubesphere into an existing Kubernetes Cluster (qs-1pipr93d
 Parameters:
   KubeManifestLambdaArn:
     Type: String
+  KubeGetLambdaArn:
+    Type: String
   KubeConfigPath:
     Type: String
   KubeConfigKmsContext:
@@ -10,11 +12,20 @@ Parameters:
     Default: "EKSQuickStart"
   KubeClusterName:
     Type: String
+  Openpitrix:
+    Type: String
+  Devops:
+    Type: String
+  Servicemesh:
+    Type: String
+  Notification:
+    Type: String
+  Alerting:
+    Type: String
   #KubeSphereLicenseKey:
    # Type: String
     #NoEcho: true
 Resources:
-# Kubesphere Kubernetes integration. 
   KubeSphereNamespace:
     Type: "Custom::KubeManifest"
     Version: '1.0'
@@ -32,6 +43,7 @@ Resources:
         metadata:
           name: kubesphere-system
   KubeSphereConfigMap:
+    DependsOn: KubeSphereNamespace
     Type: "Custom::KubeManifest"
     Version: '1.0'
     Properties:
@@ -42,7 +54,7 @@ Resources:
       # context for KMS to use when decrypting the file
       KubeConfigKmsContext: !Ref KubeConfigKmsContext
       # Kubernetes manifest
-      Manifest:
+      Manifest: !Sub |
         apiVersion: v1
         data:
           ks-config.yaml: |
@@ -84,9 +96,9 @@ Resources:
               kibana:
                 enabled: False
             openpitrix:
-              enabled: False
+              enabled: ${Openpitrix}
             devops:
-              enabled: False
+              enabled: ${Devops}
               jenkinsMemoryLim: 2Gi
               jenkinsMemoryReq: 1500Mi
               jenkinsVolumeSize: 8Gi
@@ -97,16 +109,17 @@ Resources:
                 enabled: False
                 postgresqlVolumeSize: 8Gi
             servicemesh:
-              enabled: False
+              enabled: ${Servicemesh}
             notification:
-              enabled: False
+              enabled: ${Notification}
             alerting:
-              enabled: False
+              enabled: ${Alerting}
         kind: ConfigMap
         metadata:
           name: ks-installer
           namespace: kubesphere-system
   KubeSphereServiceAccount:
+    DependsOn: KubeSphereNamespace
     Type: "Custom::KubeManifest"
     Version: '1.0'
     Properties:
@@ -124,6 +137,7 @@ Resources:
           name: ks-installer
           namespace: kubesphere-system
   KubeSphereClusterRole:
+    DependsOn: KubeSphereNamespace
     Type: "Custom::KubeManifest"
     Version: '1.0'
     Properties:
@@ -255,6 +269,7 @@ Resources:
           name: ks-installer
           apiGroup: rbac.authorization.k8s.io  
   KubeSphereDeployment:
+    DependsOn: KubeSphereNamespace
     Type: "Custom::KubeManifest"
     Version: '1.0'
     Properties:
@@ -287,5 +302,53 @@ Resources:
               containers:
               - name: installer
                 image: kubespheredev/ks-installer:dev-helm3
-                imagePullPolicy: "Always"        
-  
+                imagePullPolicy: "Always"   
+  KubeSphereService:
+    DependsOn: KubeSphereDeployment
+    Type: "Custom::KubeManifest"
+    Version: '1.0'
+    Properties:
+      # The lambda function that executes the manifest against the cluster. This is created in one of the parent stacks
+      ServiceToken: !Ref KubeManifestLambdaArn
+      # S3 path to the encrypted config file eg. s3://my-bucket/kube/config.encrypted
+      KubeConfigPath: !Ref KubeConfigPath
+      # context for KMS to use when decrypting the file
+      KubeConfigKmsContext: !Ref KubeConfigKmsContext
+      # Kubernetes manifest
+      Manifest:
+        apiVersion: v1
+        kind: Service
+        metadata:
+          labels:
+            app: ks-console
+            tier: frontend
+            version: v2.1.1
+          name: ks-console
+          namespace: kubesphere-system
+        spec:
+          ports:
+          - name: nginx
+            nodePort: 30880
+            port: 80
+            protocol: TCP
+            targetPort: 8000
+          selector:
+            app: ks-console
+            tier: frontend
+            version: v2.1.1
+          sessionAffinity: None
+          type: LoadBalancer
+  KubeSphereCosole:
+    DependsOn: KubeSphereService
+    Type: "Custom::KubeGet"
+    Version: '1.0'
+    Properties:
+      ServiceToken: !Ref KubeGetLambdaArn
+      KubeConfigPath: !Ref KubeConfigPath
+      KubeConfigKmsContext: !Ref KubeConfigKmsContext
+      Namespace: kubesphere-system
+      Name: 'svc/ks-console'
+      JsonPath: '{.status.loadBalancer.ingress[0].hostname}'  
+Outputs:
+  KubeSphereConsole:
+    Value: !Sub "http://${KubeSphereCosole}"
