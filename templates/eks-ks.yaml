@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Deploys KubeSphere into a new EKS cluster in a new VPC (qs-1pipr93g1)
+Description: Deploy KubeSphere into a new EKS cluster in a new VPC (qs-1pipr93g1)
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:

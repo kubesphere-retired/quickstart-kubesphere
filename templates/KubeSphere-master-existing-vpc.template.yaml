@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Deploys KubeSphere into a new EKS cluster in an existing VPC (qs-1pipr93g8)
+Description: Deploy KubeSphere into a new EKS cluster in an existing VPC (qs-1pipr93g8)
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
@@ -266,27 +266,27 @@ Parameters:
     Type: String
     AllowedValues: [true, false]
     Default: false
-    Description: '[OPTIONAL] OpenPitrix is an web-based open-source system to package, deploy and manage different types of applications'
+    Description: '[OPTIONAL] An application store to package, deploy and manage cloud native applications into multi-cloud environment.'
   Devops:
     Type: String
     AllowedValues: [true, false]
     Default: false
-    Description: '[OPTIONAL] Provide out-of-box CI/CD based on Jenkins, and offers automated workflow tools including binary-to-image (B2I) and source-to-image (S2I)'
+    Description: '[OPTIONAL] Provides out-of-box CI/CD based on Jenkins, and offers automated workflow tools including binary-to-image (B2I) and source-to-image (S2I).'
   Servicemesh:
     Type: String
     AllowedValues: [true, false]
     Default: false
-    Description: '[OPTIONAL] Provide fine-grained traffic management, observability and tracing for distributed microservice applications, provides visualization for traffic topology'
+    Description: '[OPTIONAL] Provides fine-grained traffic management, observability and tracing for distributed microservice applications, and provides visualization for traffic topology.'
   Notification:
     Type: String
     AllowedValues: [true, false]
     Default: false
-    Description: '[OPTIONAL] Notification Manager manages notifications in multi-tenant K8s environment'
+    Description: '[OPTIONAL] Sends alert messages to specified responders via email, slack, wechat etc.'
   Alerting:
     Type: String
     AllowedValues: [true, false]
     Default: false
-    Description: '[OPTIONAL] Alert is an enterprise-grade general-purpose high-performance alerting system'
+    Description: '[OPTIONAL] Triggers alerts for any abnormal status of resources or workloads in multi-tenant Kubernetes environment.'
 Resources:
   EKSStack:
     Type: AWS::CloudFormation::Stack
