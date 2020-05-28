@@ -427,6 +427,106 @@ Resources:
                   - "kms:*"
                   - "lambda:*"
                 Resource: "*"
+  HelmExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      MaxSessionDuration: 8400
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+                - "resources.cloudformation.amazonaws.com"
+            Action: sts:AssumeRole
+      Path: "/"
+      Policies:
+        - PolicyName: ResourceTypePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "secretsmanager:GetSecretValue"
+                  - "kms:Decrypt"
+                  - "eks:DescribeCluster"
+                  - "s3:GetObject"
+                  - "sts:AssumeRole"
+                  - "iam:PassRole"
+                  - "iam:ListRolePolicies"
+                  - "iam:ListAttachedRolePolicies"
+                  - "iam:GetRole"
+                  - "iam:GetPolicy"
+                  - "iam:GetPolicyVersion"
+                  - "ec2:CreateNetworkInterface"
+                  - "ec2:DeleteNetworkInterface"
+                  - "ec2:Describe*"
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                  - "lambda:*"
+                Resource: "*"
+  NodeSGRole:
+    Type: AWS::IAM::Role
+    Properties:
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: lambda-copier
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - eks:DescribeNodeGroup
+                Resource: '*'
+  FargateExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: eks-fargate-pods.amazonaws.com
+            Action: sts:AssumeRole
+      Path: "/"
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/AmazonEKSFargatePodExecutionRolePolicy'
+  FargateProfileRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Path: "/"
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+      Policies:
+        - PolicyName: ResourceTypePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "eks:*"
+                  - "iam:PassRole"
+                  - "iam:GetRole"
+                  - "iam:CreateServiceLinkedRole"
+                  - "ec2:DescribeSubnets"
+                Resource: "*"
 Outputs:
   DeleteBucketContentsRoleArn:
     Value: !If [ CreateDeleteBucketContentsRole, !GetAtt DeleteBucketContentsRole.Arn, "" ]
@@ -454,7 +554,15 @@ Outputs:
     Value: !GetAtt CreateVpcRoleRole.Arn
   ExecutionRoleArn:
     Value: !GetAtt ExecutionRole.Arn
+  HelmExecutionRoleArn:
+    Value: !GetAtt HelmExecutionRole.Arn
   RegisterTypeRoleArn:
     Value: !GetAtt RegisterTypeRole.Arn
   LogDeliveryRoleArn:
     Value: !GetAtt LogDeliveryRole.Arn
+  NodeSGRoleArn:
+    Value: !GetAtt NodeSGRole.Arn
+  FargateExecutionRoleArn:
+    Value: !GetAtt FargateExecutionRole.Arn
+  FargateProfileRoleArn:
+    Value: !GetAtt FargateProfileRole.Arn

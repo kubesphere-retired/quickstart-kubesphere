@@ -1,0 +1,31 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Creates a Fargate profile (qs-1qo22qnnb)"
+Metadata:
+  QSLint:
+    Exclusions: [W9002, W9003, W9004, W9006]
+Parameters:
+  ClusterName:
+    Type: String
+  FargateExecutionRoleArn:
+    Type: String
+  FargateProfileLambdaArn:
+    Type: String
+  Namespaces:
+    Type: String
+  Labels:
+    Type: String
+    Default: ""
+  Subnets:
+    Type: List<String>
+Conditions:
+  UseLabels: !Not [ !Equals [ !Ref Labels, "" ] ]
+Resources:
+  FargateProfile:
+    Type: "Custom::Fargate"
+    Properties:
+      ServiceToken: !Ref FargateProfileLambdaArn
+      ClusterName: !Ref ClusterName
+      IamRole: !Ref FargateExecutionRoleArn
+      Namespaces: !Split [ ",", !Ref Namespaces ]
+      Labels: !If [ UseLabels, !Split [ ",", !Ref Labels ], !Ref "AWS::NoValue" ]
+      Subnets: !Ref Subnets

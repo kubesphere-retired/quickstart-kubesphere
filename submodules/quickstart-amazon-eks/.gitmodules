@@ -9,3 +9,6 @@
 [submodule "functions/source/EksClusterResource"]
 	path = functions/source/EksClusterResource
 	url = git@github.com:aws-quickstart/quickstart-amazon-eks-cluster-resource-provider.git
+[submodule "functions/source/HelmReleaseResource"]
+	path = functions/source/HelmReleaseResource
+	url = git@github.com:aws-quickstart/quickstart-helm-resource-provider.git

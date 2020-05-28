@@ -44,6 +44,7 @@ Metadata:
           - QSS3BucketRegion
           - CleanupSecurityGroupDependenciesLambdaArn
           - KubeManifestLambdaArn
+          - NodeSGFunctionArn
     ParameterLabels:
       QSS3BucketRegion:
         default: Quick Start S3 bucket region
@@ -103,44 +104,52 @@ Metadata:
         default: Kubernetes manifest Lambda ARN
       TargetGroupARNs:
         default: Target Group ARN's
+      NodeSGFunctionArn:
+        default: Node security group Lambda ARN
   AWSAMIRegionMap:
     Filters:
+      AMZNEKS116:
+        name: 'amazon-eks-node-1.16-v20??????'
+        owner-id: ['602401143452', '558608220178', '800184023465', '918309763551', '961992271922']
+      AMZNEKS116GPU:
+        name: 'amazon-eks-gpu-node-1.16-v20??????'
+        owner-id: ['602401143452', '558608220178', '800184023465', '918309763551', '961992271922']
       AMZNEKS115:
         name: 'amazon-eks-node-1.15-v20??????'
-        owner-id: '602401143452'
+        owner-id: ['602401143452', '558608220178', '800184023465', '918309763551', '961992271922']
       AMZNEKS114:
         name: 'amazon-eks-node-1.14-v20??????'
-        owner-id: '602401143452'
+        owner-id: ['602401143452', '558608220178', '800184023465', '918309763551', '961992271922']
       AMZNEKS115GPU:
         name: 'amazon-eks-gpu-node-1.15-v20??????'
-        owner-id: '602401143452'
+        owner-id: ['602401143452', '558608220178', '800184023465', '918309763551', '961992271922']
       AMZNEKS114GPU:
         name: 'amazon-eks-gpu-node-1.14-v20??????'
-        owner-id: '602401143452'
+        owner-id: ['602401143452', '558608220178', '800184023465', '918309763551', '961992271922']
       AMZNEKS113:
         name: 'amazon-eks-node-1.13-v20??????'
-        owner-id: '602401143452'
+        owner-id: ['602401143452', '558608220178', '800184023465', '918309763551', '961992271922']
       AMZNEKS113GPU:
         name: 'amazon-eks-gpu-node-1.13-v20??????'
-        owner-id: '602401143452'
+        owner-id: ['602401143452', '558608220178', '800184023465', '918309763551', '961992271922']
       SLES15EKS115:
-        name: 'suse-sles-15-v20??????-hvm-ssd-x86_64'
-        owner-id: '013907871322'
+        name: 'suse-sles-15-sp1-v20??????-hvm-ssd-x86_64'
+        owner-id: ['013907871322', '841869936221']
       SLES15EKS115GPU:
-        name: 'suse-sles-15-v20??????-hvm-ssd-x86_64'
-        owner-id: '013907871322'
+        name: 'suse-sles-15-sp1-v20??????-hvm-ssd-x86_64'
+        owner-id: ['013907871322', '841869936221']
       SLES15EKS114:
-        name: 'suse-sles-15-v20??????-hvm-ssd-x86_64'
-        owner-id: '013907871322'
+        name: 'suse-sles-15-sp1-v20??????-hvm-ssd-x86_64'
+        owner-id: ['013907871322', '841869936221']
       SLES15EKS114GPU:
-        name: 'suse-sles-15-v20??????-hvm-ssd-x86_64'
-        owner-id: '013907871322'
+        name: 'suse-sles-15-sp1-v20??????-hvm-ssd-x86_64'
+        owner-id: ['013907871322', '841869936221']
       SLES15EKS113:
-        name: 'suse-sles-15-v20??????-hvm-ssd-x86_64'
-        owner-id: '013907871322'
+        name: 'suse-sles-15-sp1-v20??????-hvm-ssd-x86_64'
+        owner-id: ['013907871322', '841869936221']
       SLES15EKS113GPU:
-        name: 'suse-sles-15-v20??????-hvm-ssd-x86_64'
-        owner-id: '013907871322'
+        name: 'suse-sles-15-sp1-v20??????-hvm-ssd-x86_64'
+        owner-id: ['013907871322', '841869936221']
   cfn-lint: { config: { ignore_checks: [W2030] } }
   LintSpellExclude:
     - Managed Node Group
@@ -270,6 +279,10 @@ Parameters:
     AllowedValues: [ "AL2_x86_64", " AL2_x86_64_GPU"]
     Default: "AL2_x86_64"
     Type: String
+  MangedNodeGroupLabel:
+    Description: Add a custom name label to the Managed Node Group Nodes. If you dont do this then a default one will be added for you.
+    Type: String
+    Default: ''
   EKSControlPlane:
     Description: Name of the EKS cluster to join
     Type: String
@@ -291,8 +304,8 @@ Parameters:
     Description: IAM Role ARN to attach to nodes
   KubernetesVersion:
     Type: String
-    AllowedValues: [ "1.15", "1.14", "1.13" ]
-    Default: "1.15"
+    AllowedValues: [ "1.16", "1.15", "1.14", "1.13" ]
+    Default: "1.16"
     Description: The Kubernetes control plane version.
   TargetGroupARNs:
     Type: CommaDelimitedList
@@ -334,6 +347,9 @@ Parameters:
     Type: String
     Default: ""
     Description: "ARN for lambda function used by the KubeManifest custom resource."
+  NodeSGFunctionArn:
+    Type: String
+    Description: Function ARN to fetch node Security Group for managed node groups
   ProvisionClusterAutoScaler:
     Type: String
     AllowedValues: [ Enabled, Disabled ]
@@ -359,8 +375,9 @@ Conditions:
     - !Ref NumberOfNodes
     - 1
   UseCustomAmi: !Not [ !Equals [ !Ref CustomAmiId, "" ] ]
-  CleanupSGs:
-    !Not [ !Equals [ !Ref CleanupSecurityGroupDependenciesLambdaArn, "" ] ]
+  CleanupSGs: !Or
+    - !Not [ !Equals [ !Ref CleanupSecurityGroupDependenciesLambdaArn, "" ] ]
+    - !Equals [ !Ref 'ManagedNodeGroup', 'no' ]
   AutoScalerDisabled: !Equals [ !Ref 'ProvisionClusterAutoScaler', 'Disabled' ]
   DisableManagedNodeGroup: !Equals [ !Ref 'ManagedNodeGroup' , 'no' ]
   EnableManagedNodeGroup: !And
@@ -371,6 +388,7 @@ Conditions:
     - !Or
       - !Equals [ !Ref 'KubernetesVersion', '1.14' ]
       - !Equals [ !Ref 'KubernetesVersion', '1.13' ]
+  MNGLBL: !Equals [ !Ref 'MangedNodeGroupLabel', '' ]
 Mappings:
   K8sVersionMap:
     "1.13":
@@ -385,6 +403,10 @@ Mappings:
       BinaryPath: 1.15.10/2020-02-22/bin/linux/amd64
       STD: EKS115
       GPU: EKS115GPU
+    "1.16":
+      BinaryPath: 1.16.8/2020-04-16/bin/linux/amd64
+      STD: EKS116
+      GPU: EKS116GPU
   InstanceTypes:
     t3.nano: { Type: STD }
     t3.micro: { Type: STD }
@@ -442,6 +464,8 @@ Mappings:
       EKS114GPU: AMZNEKS114GPU
       EKS115: AMZNEKS115
       EKS115GPU: AMZNEKS115GPU
+      EKS116: AMZNEKS116
+      EKS116GPU: AMZNEKS116GPU
     SUSE-SLES-15-HVM:
       EKS113: SLES15EKS113
       EKS113GPU: SLES15EKS113GPU
@@ -449,262 +473,307 @@ Mappings:
       EKS114GPU: SLES15EKS114GPU
       EKS115: SLES15EKS115
       EKS115GPU: SLES15EKS115GPU
+      EKS116: SLES15EKS116
+      EKS116GPU: SLES15EKS116GPU
   AWSAMIRegionMap:
     ap-northeast-1:
-      AMZNEKS115: ami-0277dfa60976c29eb
-      AMZNEKS115GPU: ami-0baf850d16bfb5222
-      AMZNEKS114: ami-0bde2042c542a8206
-      AMZNEKS114GPU: ami-0c474d24249da4154
-      AMZNEKS113: ami-0988cf9d0b9e84b9d
-      AMZNEKS113GPU: ami-05ca1f89232a7ea16
-      SLES15EKS115: ami-056ac8ad44e6a7e1f
-      SLES15EKS115GPU: ami-056ac8ad44e6a7e1f
-      SLES15EKS114: ami-056ac8ad44e6a7e1f
-      SLES15EKS114GPU: ami-056ac8ad44e6a7e1f
-      SLES15EKS113: ami-056ac8ad44e6a7e1f
-      SLES15EKS113GPU: ami-056ac8ad44e6a7e1f
+      AMZNEKS116: ami-0ca8e5c318b118092
+      AMZNEKS116GPU: ami-073388a2ff3faa33b
+      AMZNEKS115: ami-026e39e61d44ff507
+      AMZNEKS115GPU: ami-093c945463034acd8
+      AMZNEKS114: ami-0472f72a6affbe2cc
+      AMZNEKS114GPU: ami-0665d37f861365592
+      AMZNEKS113: ami-087463f05d2c49ed3
+      AMZNEKS113GPU: ami-0b7f0991a89bd191c
+      SLES15EKS115: ami-0dae5fda3ab8726c3
+      SLES15EKS115GPU: ami-0dae5fda3ab8726c3
+      SLES15EKS114: ami-0dae5fda3ab8726c3
+      SLES15EKS114GPU: ami-0dae5fda3ab8726c3
+      SLES15EKS113: ami-0dae5fda3ab8726c3
+      SLES15EKS113GPU: ami-0dae5fda3ab8726c3
     ap-northeast-2:
-      AMZNEKS115: ami-08a18de5609e8f781
-      AMZNEKS115GPU: ami-086442fa21abfa1fa
-      SLES15EKS115: ami-0f81fff879bafe6b8
-      SLES15EKS115GPU: ami-0f81fff879bafe6b8
-      AMZNEKS114: ami-033d53732b3e1c2a8
-      AMZNEKS114GPU: ami-091da438f489999df
-      AMZNEKS113: ami-0474327e4bac7142d
-      AMZNEKS113GPU: ami-0cb61e4c694a90c6f
-      SLES15EKS114: ami-0f81fff879bafe6b8
-      SLES15EKS114GPU: ami-0f81fff879bafe6b8
-      SLES15EKS113: ami-0f81fff879bafe6b8
-      SLES15EKS113GPU: ami-0f81fff879bafe6b8
+      AMZNEKS116: ami-0da70348effa9af72
+      AMZNEKS116GPU: ami-0be14db3e3d0a3802
+      AMZNEKS115: ami-0e1e660d5e393d5f1
+      AMZNEKS115GPU: ami-04ff3d7117b9946d5
+      SLES15EKS115: ami-0bcca7befe1b4317b
+      SLES15EKS115GPU: ami-0bcca7befe1b4317b
+      AMZNEKS114: ami-01b6316fe22d918a9
+      AMZNEKS114GPU: ami-04bd3e8bb22b81bd1
+      AMZNEKS113: ami-092004fafd70c5e38
+      AMZNEKS113GPU: ami-0065bbd4b85a840f4
+      SLES15EKS114: ami-0bcca7befe1b4317b
+      SLES15EKS114GPU: ami-0bcca7befe1b4317b
+      SLES15EKS113: ami-0bcca7befe1b4317b
+      SLES15EKS113GPU: ami-0bcca7befe1b4317b
     ap-south-1:
-      AMZNEKS115: ami-0affdca3349afd84d
-      AMZNEKS115GPU: ami-044aa86c429013561
-      SLES15EKS115: ami-01be89269d32f2a16
-      SLES15EKS115GPU: ami-01be89269d32f2a16
-      AMZNEKS114: ami-06fe9e5e98d08b972
-      AMZNEKS114GPU: ami-064c0c3bb22db25e5
-      AMZNEKS113: ami-050732912924d1138
-      AMZNEKS113GPU: ami-0b85720617dddc175
-      SLES15EKS114: ami-01be89269d32f2a16
-      SLES15EKS114GPU: ami-01be89269d32f2a16
-      SLES15EKS113: ami-01be89269d32f2a16
-      SLES15EKS113GPU: ami-01be89269d32f2a16
+      AMZNEKS116: ami-00725375bc29d9601
+      AMZNEKS116GPU: ami-031a4918f3db98a08
+      AMZNEKS115: ami-040e5afd1b110a399
+      AMZNEKS115GPU: ami-02b5340b229583722
+      SLES15EKS115: ami-065edd4e2270fb2e1
+      SLES15EKS115GPU: ami-065edd4e2270fb2e1
+      AMZNEKS114: ami-09edbbb02478906e3
+      AMZNEKS114GPU: ami-07f39289712b40bd2
+      AMZNEKS113: ami-06ea3235f114e1cdb
+      AMZNEKS113GPU: ami-0d5d61d6ae05d7e6b
+      SLES15EKS114: ami-065edd4e2270fb2e1
+      SLES15EKS114GPU: ami-065edd4e2270fb2e1
+      SLES15EKS113: ami-065edd4e2270fb2e1
+      SLES15EKS113GPU: ami-065edd4e2270fb2e1
     ap-southeast-1:
-      AMZNEKS115: ami-0ff367de8253131b9
-      AMZNEKS115GPU: ami-02a6a9c8e646dc731
-      SLES15EKS115: ami-070356c21596ddc67
-      SLES15EKS115GPU: ami-070356c21596ddc67
-      AMZNEKS114: ami-0081cf282b9fdbca0
-      AMZNEKS114GPU: ami-051d5e6ac56754737
-      AMZNEKS113: ami-01df98fcf2222391e
-      AMZNEKS113GPU: ami-011b4f8b5190ddfd0
-      SLES15EKS114: ami-070356c21596ddc67
-      SLES15EKS114GPU: ami-070356c21596ddc67
-      SLES15EKS113: ami-070356c21596ddc67
-      SLES15EKS113GPU: ami-070356c21596ddc67
+      AMZNEKS116: ami-093fffbd1480f8c72
+      AMZNEKS116GPU: ami-0c34f543bfdbfdb04
+      AMZNEKS115: ami-0d32de2029a9f56fd
+      AMZNEKS115GPU: ami-0233b3e636baa0997
+      SLES15EKS115: ami-0b7f7c934cfe30c63
+      SLES15EKS115GPU: ami-0b7f7c934cfe30c63
+      AMZNEKS114: ami-069fad55139bcb636
+      AMZNEKS114GPU: ami-0d0c244ad46219038
+      AMZNEKS113: ami-04d9ba03c38df08b5
+      AMZNEKS113GPU: ami-033a9ce6a9c1c756f
+      SLES15EKS114: ami-0b7f7c934cfe30c63
+      SLES15EKS114GPU: ami-0b7f7c934cfe30c63
+      SLES15EKS113: ami-0b7f7c934cfe30c63
+      SLES15EKS113GPU: ami-0b7f7c934cfe30c63
     ap-southeast-2:
-      AMZNEKS115: ami-09e4ca02af4c6ddf5
-      AMZNEKS115GPU: ami-0b27d5a5c8d3b3e85
-      SLES15EKS115: ami-0c4245381c67efb39
-      SLES15EKS115GPU: ami-0c4245381c67efb39
-      AMZNEKS114: ami-0d92a6102f85a7fe6
-      AMZNEKS114GPU: ami-038df8ee88d869e42
-      AMZNEKS113: ami-081c0b07cd24815c4
-      AMZNEKS113GPU: ami-095a03b403231d043
-      SLES15EKS114: ami-0c4245381c67efb39
-      SLES15EKS114GPU: ami-0c4245381c67efb39
-      SLES15EKS113: ami-0c4245381c67efb39
-      SLES15EKS113GPU: ami-0c4245381c67efb39
+      AMZNEKS116: ami-0ed6c012b2bd57b73
+      AMZNEKS116GPU: ami-0224f8b18262a4a1d
+      AMZNEKS115: ami-07aee5ce871a45bcf
+      AMZNEKS115GPU: ami-0f7aee17fdeffdbc0
+      SLES15EKS115: ami-0d6f00758277a28f7
+      SLES15EKS115GPU: ami-0d6f00758277a28f7
+      AMZNEKS114: ami-0fbfeefbb99c1783d
+      AMZNEKS114GPU: ami-04791e36cb138607e
+      AMZNEKS113: ami-0bf9234bf8cd4eea2
+      AMZNEKS113GPU: ami-07885a4b174760b28
+      SLES15EKS114: ami-0d6f00758277a28f7
+      SLES15EKS114GPU: ami-0d6f00758277a28f7
+      SLES15EKS113: ami-0d6f00758277a28f7
+      SLES15EKS113GPU: ami-0d6f00758277a28f7
     ca-central-1:
-      AMZNEKS115: ami-0ba2c6ab04a6b0a60
-      AMZNEKS115GPU: ami-015bdeb2e5df7cc01
-      SLES15EKS115: ami-0c97d9b588207dad6
-      SLES15EKS115GPU: ami-0c97d9b588207dad6
-      AMZNEKS114: ami-0c0b9c89727b6bd52
-      AMZNEKS114GPU: ami-054590aa9561d4791
-      AMZNEKS113: ami-01fdd62dbee0dc0a7
-      AMZNEKS113GPU: ami-0e72e5d0c3cc41e2d
-      SLES15EKS114: ami-0c97d9b588207dad6
-      SLES15EKS114GPU: ami-0c97d9b588207dad6
-      SLES15EKS113: ami-0c97d9b588207dad6
-      SLES15EKS113GPU: ami-0c97d9b588207dad6
+      AMZNEKS116: ami-0139a5bcca4fd37a9
+      AMZNEKS116GPU: ami-0e3dd4ffe2990af89
+      AMZNEKS115: ami-0286b3b75d600924d
+      AMZNEKS115GPU: ami-0a1547fc818671add
+      SLES15EKS115: ami-06ab9a53ab05446fa
+      SLES15EKS115GPU: ami-06ab9a53ab05446fa
+      AMZNEKS114: ami-064fd810d76e41b31
+      AMZNEKS114GPU: ami-0c5dddc53103725e0
+      AMZNEKS113: ami-01d73c6ce56880dd7
+      AMZNEKS113GPU: ami-0b5721fda1a071339
+      SLES15EKS114: ami-06ab9a53ab05446fa
+      SLES15EKS114GPU: ami-06ab9a53ab05446fa
+      SLES15EKS113: ami-06ab9a53ab05446fa
+      SLES15EKS113GPU: ami-06ab9a53ab05446fa
     eu-central-1:
-      AMZNEKS115: ami-03f38e3da6bae81a9
-      AMZNEKS115GPU: ami-0015e5fdc9973d4dd
-      SLES15EKS115: ami-05dfd265ea534a3e9
-      SLES15EKS115GPU: ami-05dfd265ea534a3e9
-      AMZNEKS114: ami-009888433c7de148c
-      AMZNEKS114GPU: ami-0baf36fd877900098
-      AMZNEKS113: ami-0f4a149ba5d285c9f
-      AMZNEKS113GPU: ami-04c2a53baff1e6489
-      SLES15EKS114: ami-05dfd265ea534a3e9
-      SLES15EKS114GPU: ami-05dfd265ea534a3e9
-      SLES15EKS113: ami-05dfd265ea534a3e9
-      SLES15EKS113GPU: ami-05dfd265ea534a3e9
+      AMZNEKS116: ami-0bf7306240d09dcdd
+      AMZNEKS116GPU: ami-0341b089733b256f9
+      AMZNEKS115: ami-02497bca9c9dbc206
+      AMZNEKS115GPU: ami-05c4b8f3ef1bb1e19
+      SLES15EKS115: ami-0c99be8a286251d31
+      SLES15EKS115GPU: ami-0c99be8a286251d31
+      AMZNEKS114: ami-03d9393d97f5959fe
+      AMZNEKS114GPU: ami-0a0a41cca69ec0aae
+      AMZNEKS113: ami-00b8b203722a43adf
+      AMZNEKS113GPU: ami-0ac48ef9b47499768
+      SLES15EKS114: ami-0c99be8a286251d31
+      SLES15EKS114GPU: ami-0c99be8a286251d31
+      SLES15EKS113: ami-0c99be8a286251d31
+      SLES15EKS113GPU: ami-0c99be8a286251d31
     eu-north-1:
-      AMZNEKS115: ami-047667dadeffd78b9
-      AMZNEKS115GPU: ami-06f3f9ec292dcc995
-      SLES15EKS115: ami-0741fa1a008af40ad
-      SLES15EKS115GPU: ami-0741fa1a008af40ad
-      AMZNEKS114: ami-05ce28df376fd10e7
-      AMZNEKS114GPU: ami-013f545882bb03518
-      AMZNEKS113: ami-0bdc540a6e3dd9c39
-      AMZNEKS113GPU: ami-01568b87341fa0748
-      SLES15EKS114: ami-0741fa1a008af40ad
-      SLES15EKS114GPU: ami-0741fa1a008af40ad
-      SLES15EKS113: ami-0741fa1a008af40ad
-      SLES15EKS113GPU: ami-0741fa1a008af40ad
+      AMZNEKS116: ami-030f9071e0d32b989
+      AMZNEKS116GPU: ami-0928efc18a4fa6c75
+      AMZNEKS115: ami-0efc0441f778f5826
+      AMZNEKS115GPU: ami-03d6bc6745788f9dd
+      SLES15EKS115: ami-0d4ba232167647a22
+      SLES15EKS115GPU: ami-0d4ba232167647a22
+      AMZNEKS114: ami-00aa667bc61a020ac
+      AMZNEKS114GPU: ami-03a41b6e4558aa4c5
+      AMZNEKS113: ami-01179dbad4d43b6a4
+      AMZNEKS113GPU: ami-00e2aa5149bc6ac2f
+      SLES15EKS114: ami-0d4ba232167647a22
+      SLES15EKS114GPU: ami-0d4ba232167647a22
+      SLES15EKS113: ami-0d4ba232167647a22
+      SLES15EKS113GPU: ami-0d4ba232167647a22
     eu-west-1:
-      AMZNEKS115: ami-0f9e9442edcd2faa2
-      AMZNEKS115GPU: ami-0489f8c071cf9a574
-      SLES15EKS115: ami-0a58a1b152ba55f1d
-      SLES15EKS115GPU: ami-0a58a1b152ba55f1d
-      AMZNEKS114: ami-0f27a6dd486237207
-      AMZNEKS114GPU: ami-0c216047148795eae
-      AMZNEKS113: ami-0318e5de902290bb3
-      AMZNEKS113GPU: ami-04c3dfa51fe2f1d17
-      SLES15EKS114: ami-0a58a1b152ba55f1d
-      SLES15EKS114GPU: ami-0a58a1b152ba55f1d
-      SLES15EKS113: ami-0a58a1b152ba55f1d
-      SLES15EKS113GPU: ami-0a58a1b152ba55f1d
+      AMZNEKS116: ami-03c5e686287fd90e9
+      AMZNEKS116GPU: ami-0f3d4e5c54ec38176
+      AMZNEKS115: ami-023736532608ff45e
+      AMZNEKS115GPU: ami-07fdadd8f2bf06e82
+      SLES15EKS115: ami-0c7c799aac480ea77
+      SLES15EKS115GPU: ami-0c7c799aac480ea77
+      AMZNEKS114: ami-048d37e92ce89022e
+      AMZNEKS114GPU: ami-09585e5924cde339f
+      AMZNEKS113: ami-0bd1d87604aa3a367
+      AMZNEKS113GPU: ami-05432b1a64feb6423
+      SLES15EKS114: ami-0c7c799aac480ea77
+      SLES15EKS114GPU: ami-0c7c799aac480ea77
+      SLES15EKS113: ami-0c7c799aac480ea77
+      SLES15EKS113GPU: ami-0c7c799aac480ea77
     eu-west-2:
-      AMZNEKS115: ami-0ad8600a59c501b34
-      AMZNEKS115GPU: ami-04104ebaea5b016fc
-      SLES15EKS115: ami-01497522185aaa4ee
-      SLES15EKS115GPU: ami-01497522185aaa4ee
-      AMZNEKS114: ami-07151b2a6ed61a9c9
-      AMZNEKS114GPU: ami-0294bee2929bca4a8
-      AMZNEKS113: ami-019280a5951b6da03
-      AMZNEKS113GPU: ami-0e8f53243732b7700
-      SLES15EKS114: ami-01497522185aaa4ee
-      SLES15EKS114GPU: ami-01497522185aaa4ee
-      SLES15EKS113: ami-01497522185aaa4ee
-      SLES15EKS113GPU: ami-01497522185aaa4ee
+      AMZNEKS116: ami-02e571568d897dcab
+      AMZNEKS116GPU: ami-0a4587c7e00661d8a
+      AMZNEKS115: ami-0a79663bf395ae44d
+      AMZNEKS115GPU: ami-089fe51b1c3b5d6fd
+      SLES15EKS115: ami-01f3fa4b1427a8522
+      SLES15EKS115GPU: ami-01f3fa4b1427a8522
+      AMZNEKS114: ami-0a907f63b13a38029
+      AMZNEKS114GPU: ami-0b155e164db9731e2
+      AMZNEKS113: ami-0cfee0d573de9f673
+      AMZNEKS113GPU: ami-0dc66e10b39d8ff36
+      SLES15EKS114: ami-01f3fa4b1427a8522
+      SLES15EKS114GPU: ami-01f3fa4b1427a8522
+      SLES15EKS113: ami-01f3fa4b1427a8522
+      SLES15EKS113GPU: ami-01f3fa4b1427a8522
     eu-west-3:
-      AMZNEKS115: ami-042ca11d411a710a8
-      AMZNEKS115GPU: ami-0685ec0c256f6cf29
-      SLES15EKS115: ami-0f238bd4c6fdbefb0
-      SLES15EKS115GPU: ami-0f238bd4c6fdbefb0
-      AMZNEKS114: ami-0753c5c2cf1adb82f
-      AMZNEKS114GPU: ami-05839ee2b69a8605c
-      AMZNEKS113: ami-0abe10734c7b33d20
-      AMZNEKS113GPU: ami-089fc6a5d98fc1c0e
-      SLES15EKS114: ami-0f238bd4c6fdbefb0
-      SLES15EKS114GPU: ami-0f238bd4c6fdbefb0
-      SLES15EKS113: ami-0f238bd4c6fdbefb0
-      SLES15EKS113GPU: ami-0f238bd4c6fdbefb0
+      AMZNEKS116: ami-0170bd57fa0c260da
+      AMZNEKS116GPU: ami-0f18e42630a49eba4
+      AMZNEKS115: ami-0de67e5d090c0eef0
+      AMZNEKS115GPU: ami-0c84727799ef95690
+      SLES15EKS115: ami-04451e7a9fa8ac139
+      SLES15EKS115GPU: ami-04451e7a9fa8ac139
+      AMZNEKS114: ami-043b0c38ebd8435f9
+      AMZNEKS114GPU: ami-0473e8095f62eb9e0
+      AMZNEKS113: ami-0f760dec69360c158
+      AMZNEKS113GPU: ami-04981fe8fd1b08639
+      SLES15EKS114: ami-04451e7a9fa8ac139
+      SLES15EKS114GPU: ami-04451e7a9fa8ac139
+      SLES15EKS113: ami-04451e7a9fa8ac139
+      SLES15EKS113GPU: ami-04451e7a9fa8ac139
     sa-east-1:
-      AMZNEKS115: ami-01c089e21703f1d58
-      AMZNEKS115GPU: ami-0ff5b3e0abcfe6b37
-      SLES15EKS115: ami-0772af912976aa692
-      SLES15EKS115GPU: ami-0772af912976aa692
-      AMZNEKS114: ami-04dedde5a61213b7c
-      AMZNEKS114GPU: ami-009843673962eb8ad
-      AMZNEKS113: ami-0316d405ed67a38ab
-      AMZNEKS113GPU: ami-0e33ef5d46b247375
-      SLES15EKS114: ami-0772af912976aa692
-      SLES15EKS114GPU: ami-0772af912976aa692
-      SLES15EKS113: ami-0772af912976aa692
-      SLES15EKS113GPU: ami-0772af912976aa692
+      AMZNEKS116: ami-0ed2cc7e74c7bc2e2
+      AMZNEKS116GPU: ami-0f32b9727b9868519
+      AMZNEKS115: ami-07b176b7f55c9df7c
+      AMZNEKS115GPU: ami-0c344fca61b2e56af
+      SLES15EKS115: ami-0d760167d68cf77ba
+      SLES15EKS115GPU: ami-0d760167d68cf77ba
+      AMZNEKS114: ami-0fb60915ec12aac26
+      AMZNEKS114GPU: ami-0828047d8af068874
+      AMZNEKS113: ami-0f52e1602e8ed4e90
+      AMZNEKS113GPU: ami-0e88ea382d951591c
+      SLES15EKS114: ami-0d760167d68cf77ba
+      SLES15EKS114GPU: ami-0d760167d68cf77ba
+      SLES15EKS113: ami-0d760167d68cf77ba
+      SLES15EKS113GPU: ami-0d760167d68cf77ba
     us-east-1:
-      AMZNEKS115: ami-0e5bb2367e692b807
-      AMZNEKS115GPU: ami-03bd50b8ac8b2d518
-      SLES15EKS115: ami-0b1764f3d7d2e2316
-      SLES15EKS115GPU: ami-0b1764f3d7d2e2316
-      AMZNEKS114: ami-0f15d55736fd476da
-      AMZNEKS114GPU: ami-0a6251e7627cc28bf
-      AMZNEKS113: ami-0bbe3627256eecdcf
-      AMZNEKS113GPU: ami-044867047e7fe7605
-      SLES15EKS114: ami-0b1764f3d7d2e2316
-      SLES15EKS114GPU: ami-0b1764f3d7d2e2316
-      SLES15EKS113: ami-0b1764f3d7d2e2316
-      SLES15EKS113GPU: ami-0b1764f3d7d2e2316
+      AMZNEKS116: ami-05ac566a7ec2378db
+      AMZNEKS116GPU: ami-0a63304000a69ac83
+      AMZNEKS115: ami-06d4f570358b1b626
+      AMZNEKS115GPU: ami-08b20aa568bfd9034
+      SLES15EKS115: ami-0b326695e023b93d5
+      SLES15EKS115GPU: ami-0b326695e023b93d5
+      AMZNEKS114: ami-05e621d4ba5b28dcc
+      AMZNEKS114GPU: ami-04ac5ea8ad53f0718
+      AMZNEKS113: ami-08becd0d34f995483
+      AMZNEKS113GPU: ami-0487c755adba013ba
+      SLES15EKS114: ami-0b326695e023b93d5
+      SLES15EKS114GPU: ami-0b326695e023b93d5
+      SLES15EKS113: ami-0b326695e023b93d5
+      SLES15EKS113GPU: ami-0b326695e023b93d5
     us-east-2:
-      AMZNEKS115: ami-0b41405369376af92
-      AMZNEKS115GPU: ami-022f8019a5a2ca24d
-      SLES15EKS115: ami-05ea824317ffc0c20
-      SLES15EKS115GPU: ami-05ea824317ffc0c20
-      AMZNEKS114: ami-0b39419f88b3717f4
-      AMZNEKS114GPU: ami-04486a48f0864e86a
-      AMZNEKS113: ami-03198957907f60a11
-      AMZNEKS113GPU: ami-0c84778687ddb2c36
-      SLES15EKS114: ami-05ea824317ffc0c20
-      SLES15EKS114GPU: ami-05ea824317ffc0c20
-      SLES15EKS113: ami-05ea824317ffc0c20
-      SLES15EKS113GPU: ami-05ea824317ffc0c20
+      AMZNEKS116: ami-0edc51bc2f03c9dc2
+      AMZNEKS116GPU: ami-0de82d6127e72c65b
+      AMZNEKS115: ami-0c1bd9eca9c869a0d
+      AMZNEKS115GPU: ami-09fff3605c34de565
+      SLES15EKS115: ami-0efc9a15a1fd61f97
+      SLES15EKS115GPU: ami-0efc9a15a1fd61f97
+      AMZNEKS114: ami-0b89776dcfa5f2dee
+      AMZNEKS114GPU: ami-0575560bf57d243b6
+      AMZNEKS113: ami-0cf9a8c09f13b04d1
+      AMZNEKS113GPU: ami-0d30b440fa882e95b
+      SLES15EKS114: ami-0efc9a15a1fd61f97
+      SLES15EKS114GPU: ami-0efc9a15a1fd61f97
+      SLES15EKS113: ami-0efc9a15a1fd61f97
+      SLES15EKS113GPU: ami-0efc9a15a1fd61f97
     us-west-2:
-      AMZNEKS115: ami-0f53c7a1236d06961
-      AMZNEKS115GPU: ami-09c404af3afbdf7d5
-      SLES15EKS115: ami-0f1e3b3fb0fec0361
-      SLES15EKS115GPU: ami-0f1e3b3fb0fec0361
-      AMZNEKS114: ami-0800241390701b996
-      AMZNEKS114GPU: ami-0d74bc838b2488750
-      AMZNEKS113: ami-0086e189e6895b02b
-      AMZNEKS113GPU: ami-00f652b51f30b478a
-      SLES15EKS114: ami-0f1e3b3fb0fec0361
-      SLES15EKS114GPU: ami-0f1e3b3fb0fec0361
-      SLES15EKS113: ami-0f1e3b3fb0fec0361
-      SLES15EKS113GPU: ami-0f1e3b3fb0fec0361
+      AMZNEKS116: ami-0809659d79ce80260
+      AMZNEKS116GPU: ami-069280744807e927b
+      AMZNEKS115: ami-065418523a44331e5
+      AMZNEKS115GPU: ami-0b408465e05e85edb
+      SLES15EKS115: ami-0ccefbfd6cd77b0a2
+      SLES15EKS115GPU: ami-0ccefbfd6cd77b0a2
+      AMZNEKS114: ami-0486134a23d903f10
+      AMZNEKS114GPU: ami-02b0649372044be55
+      AMZNEKS113: ami-0c42eb6db4a35a419
+      AMZNEKS113GPU: ami-0cfb505d6cdd3fc67
+      SLES15EKS114: ami-0ccefbfd6cd77b0a2
+      SLES15EKS114GPU: ami-0ccefbfd6cd77b0a2
+      SLES15EKS113: ami-0ccefbfd6cd77b0a2
+      SLES15EKS113GPU: ami-0ccefbfd6cd77b0a2
     me-south-1:
-      AMZNEKS115: ami-0b13f3967c378c4f6
-      AMZNEKS115GPU: ami-021f234c12577db1a
-      SLES15EKS115: ami-0f1e3b3fb0fec0361
-      SLES15EKS115GPU: ami-0f1e3b3fb0fec0361
-      AMZNEKS114: ami-07c8119c4099fb9d9
-      AMZNEKS114GPU: ami-0e047af8f05d7c2de
-      AMZNEKS113: ami-05d9a6db185addc4d
-      AMZNEKS113GPU: ami-0196c6276a4ccd07c
-      SLES15EKS114: ami-0f1e3b3fb0fec0361
-      SLES15EKS114GPU: ami-0f1e3b3fb0fec0361
-      SLES15EKS113: ami-0f1e3b3fb0fec0361
-      SLES15EKS113GPU: ami-0f1e3b3fb0fec0361
+      AMZNEKS116: ami-08bf7870510670f47
+      AMZNEKS116GPU: ami-0452551cc7dc1ad8f
+      AMZNEKS115: ami-075a74dc065b91bf6
+      AMZNEKS115GPU: ami-0d8935022e83627fc
+      SLES15EKS115: ami-08ab47783ca7d9bab
+      SLES15EKS115GPU: ami-08ab47783ca7d9bab
+      AMZNEKS114: ami-0e337e92214d0764d
+      AMZNEKS114GPU: ami-05d6823cc5b7dc141
+      AMZNEKS113: ami-0f8a8ca99021bd9c4
+      AMZNEKS113GPU: ami-0b25c61c3a7906981
+      SLES15EKS114: ami-08ab47783ca7d9bab
+      SLES15EKS114GPU: ami-08ab47783ca7d9bab
+      SLES15EKS113: ami-08ab47783ca7d9bab
+      SLES15EKS113GPU: ami-08ab47783ca7d9bab
     ap-east-1:
-      AMZNEKS115: ami-0554e2491180bed0b
-      AMZNEKS115GPU: ami-0a2912c7fb1a2c844
-      SLES15EKS115: ami-0ad6e15bcbb2dbe38
-      SLES15EKS115GPU: ami-0ad6e15bcbb2dbe38
-      AMZNEKS114: ami-0d1571e66912e6208
-      AMZNEKS114GPU: ami-0a5559a4ff2dc6bb3
-      AMZNEKS113: ami-057e8ca7012f37c89
-      AMZNEKS113GPU: ami-05283409470af5f65
-      SLES15EKS114: ami-0ad6e15bcbb2dbe38
-      SLES15EKS114GPU: ami-0ad6e15bcbb2dbe38
-      SLES15EKS113: ami-0ad6e15bcbb2dbe38
-      SLES15EKS113GPU: ami-0ad6e15bcbb2dbe38
+      AMZNEKS116: ami-024ec7439d902ac50
+      AMZNEKS116GPU: ami-0e9e0529e8f7739b2
+      AMZNEKS115: ami-0ae1b0aad4d6fb508
+      AMZNEKS115GPU: ami-0cebc923a92e816dc
+      SLES15EKS115: ami-0ba53281cb40c2c23
+      SLES15EKS115GPU: ami-0ba53281cb40c2c23
+      AMZNEKS114: ami-03d6ba9854832e1af
+      AMZNEKS114GPU: ami-0d02219ac9e17b2a8
+      AMZNEKS113: ami-04d4f9509e32a49e5
+      AMZNEKS113GPU: ami-06203aa73a3468d51
+      SLES15EKS114: ami-0ba53281cb40c2c23
+      SLES15EKS114GPU: ami-0ba53281cb40c2c23
+      SLES15EKS113: ami-0ba53281cb40c2c23
+      SLES15EKS113GPU: ami-0ba53281cb40c2c23
     cn-north-1:
-      AMZNEKS115: ami-0e3fdad539bc6bc5b
-      AMZNEKS115GPU: ami-08b907e092c75df7b
-      SLES15EKS115: ami-021392849b6221a81
-      SLES15EKS115GPU: ami-021392849b6221a81
-      AMZNEKS114: ami-0ecb51304468f8e65
-      AMZNEKS114GPU: ami-0af2180b40d6e2cb3
-      AMZNEKS113: ami-065de706d93a2e785
-      AMZNEKS113GPU: ami-07441081847bace44
-      SLES15EKS114: ami-021392849b6221a81
-      SLES15EKS114GPU: ami-021392849b6221a81
-      SLES15EKS113: ami-021392849b6221a81
-      SLES15EKS113GPU: ami-021392849b6221a81
+      AMZNEKS116: ami-07108f3aaa373301b
+      AMZNEKS116GPU: ami-0616c69cba05e4cf8
+      AMZNEKS115: ami-0328eb163bdc23b56
+      AMZNEKS115GPU: ami-08080f72f7d9e59d7
+      SLES15EKS115: ami-065f90c5b77bb1f4a
+      SLES15EKS115GPU: ami-065f90c5b77bb1f4a
+      AMZNEKS114: ami-0ace35e8d17b684e4
+      AMZNEKS114GPU: ami-04e5ae18d4aad7477
+      AMZNEKS113: ami-09a40634f24e6eb15
+      AMZNEKS113GPU: ami-0b066122a54318501
+      SLES15EKS114: ami-065f90c5b77bb1f4a
+      SLES15EKS114GPU: ami-065f90c5b77bb1f4a
+      SLES15EKS113: ami-065f90c5b77bb1f4a
+      SLES15EKS113GPU: ami-065f90c5b77bb1f4a
     cn-northwest-1:
-      AMZNEKS115: ami-0d5734e2c1b93bb9d
-      AMZNEKS115GPU: ami-08c5f7eb7cc7978ec
-      SLES15EKS115: ami-00e1de3ee6d0d28ea
-      SLES15EKS115GPU: ami-00e1de3ee6d0d28ea
-      AMZNEKS114: ami-0c687313ed7d5e0cb
-      AMZNEKS114GPU: ami-07ec4c1a5a39bb102
-      AMZNEKS113: ami-078ca45f9105fd15a
-      AMZNEKS113GPU: ami-0cd11c0b7dea24b42
-      SLES15EKS114: ami-00e1de3ee6d0d28ea
-      SLES15EKS114GPU: ami-00e1de3ee6d0d28ea
-      SLES15EKS113: ami-00e1de3ee6d0d28ea
-      SLES15EKS113GPU: ami-00e1de3ee6d0d28ea
+      AMZNEKS116: ami-00e5a9f05190a870f
+      AMZNEKS116GPU: ami-059159c315686466d
+      AMZNEKS115: ami-096648a8ff0856690
+      AMZNEKS115GPU: ami-01884d55778898aaf
+      SLES15EKS115: ami-036d95c22c0c6df0f
+      SLES15EKS115GPU: ami-036d95c22c0c6df0f
+      AMZNEKS114: ami-06a25a7a8169db58e
+      AMZNEKS114GPU: ami-09bf7bf625321a193
+      AMZNEKS113: ami-0206530c1b3913bf0
+      AMZNEKS113GPU: ami-02f54a8f9d951af65
+      SLES15EKS114: ami-036d95c22c0c6df0f
+      SLES15EKS114GPU: ami-036d95c22c0c6df0f
+      SLES15EKS113: ami-036d95c22c0c6df0f
+      SLES15EKS113GPU: ami-036d95c22c0c6df0f
 Resources:
   CleanupSecurityGroupDependencies:
     Condition: CleanupSGs
     Type: Custom::Cleanup
     Properties:
       ServiceToken: !Ref CleanupSecurityGroupDependenciesLambdaArn
-      SecurityGroups: [!Ref NodeSecurityGroup]
+      SecurityGroups:
+        - !If
+          - DisableManagedNodeGroup
+          - !Ref NodeSecurityGroup
+          - !Ref 'AWS::NoValue'
   NodeSecurityGroup:
+    Condition: DisableManagedNodeGroup
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Security group for all nodes in the node group
@@ -713,6 +782,7 @@ Resources:
         - Key: !Sub "kubernetes.io/cluster/${EKSControlPlane}"
           Value: 'owned'
   NodeSecurityGroupIngress:
+    Condition: DisableManagedNodeGroup
     Type: AWS::EC2::SecurityGroupIngress
     Properties:
       Description: Allow nodes to communicate with each other
@@ -721,7 +791,20 @@ Resources:
       IpProtocol: '-1'
       FromPort: 0
       ToPort: 65535
+  ManagedNodeSecurityGroupIngress:
+    Metadata:
+      cfn-lint: { config: { ignore_checks: [E3008] } }
+    Condition: EnableManagedNodeGroup
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Allow nodes to communicate with each other
+      GroupId: !Ref NodeSG
+      SourceSecurityGroupId: !Ref NodeSG
+      IpProtocol: '-1'
+      FromPort: 0
+      ToPort: 65535
   NodeSecurityGroupFromControlPlaneIngress:
+    Condition: DisableManagedNodeGroup
     Type: AWS::EC2::SecurityGroupIngress
     Properties:
       Description: Allow worker Kubelets and pods to receive communication from the cluster control plane
@@ -730,16 +813,8 @@ Resources:
       IpProtocol: tcp
       FromPort: 1025
       ToPort: 65535
-  ControlPlaneEgressToNodeSecurityGroup:
-    Type: AWS::EC2::SecurityGroupEgress
-    Properties:
-      Description: Allow the cluster control plane to communicate with worker Kubelet and pods
-      GroupId: !Ref ControlPlaneSecurityGroup
-      DestinationSecurityGroupId: !Ref NodeSecurityGroup
-      IpProtocol: tcp
-      FromPort: 1025
-      ToPort: 65535
   NodeSecurityGroupFromControlPlaneOn443Ingress:
+    Condition: DisableManagedNodeGroup
     Type: AWS::EC2::SecurityGroupIngress
     Properties:
       Description: Allow pods running extension API servers on port 443 to receive communication from cluster control plane
@@ -748,16 +823,8 @@ Resources:
       IpProtocol: tcp
       FromPort: 443
       ToPort: 443
-  ControlPlaneEgressToNodeSecurityGroupOn443:
-    Type: AWS::EC2::SecurityGroupEgress
-    Properties:
-      Description: Allow the cluster control plane to communicate with pods running extension API servers on port 443
-      GroupId: !Ref ControlPlaneSecurityGroup
-      DestinationSecurityGroupId: !Ref NodeSecurityGroup
-      IpProtocol: tcp
-      FromPort: 443
-      ToPort: 443
   ClusterControlPlaneSecurityGroupIngress:
+    Condition: DisableManagedNodeGroup
     Type: AWS::EC2::SecurityGroupIngress
     Properties:
       Description: Allow pods to communicate with the cluster API Server
@@ -766,6 +833,13 @@ Resources:
       IpProtocol: tcp
       ToPort: 443
       FromPort: 443
+  NodeSG:
+    Condition: EnableManagedNodeGroup
+    Type: Custom::NodeSG
+    Properties:
+      ServiceToken: !Ref NodeSGFunctionArn
+      ClusterName: !Ref EKSControlPlane
+      NodeGroupName: !GetAtt EKSNodegroup.NodegroupName
   NodeGroup:
     Metadata:
       DependsOn: !If [ CleanupSGs, !Ref CleanupSecurityGroupDependencies, !Ref "AWS::NoValue" ]
@@ -817,6 +891,7 @@ Resources:
       HttpProxy: !Ref HttpProxy
       VpcId: !Ref VPCID
   NodeLaunchConfig:
+    Condition: DisableManagedNodeGroup
     Type: AWS::AutoScaling::LaunchConfiguration
     Metadata:
       AWS::CloudFormation::Authentication:
@@ -1035,7 +1110,7 @@ Resources:
         MaxSize: !If [ MaxNodes, !Ref MaxNumberOfNodes, !Ref NumberOfNodes ]
       Labels:
         Key: Name
-        Value: !Sub "${EKSControlPlane}-${NodeGroupName}-Node"
+        Value: !If [ MNGLBL, !Sub '${EKSControlPlane}-${NodeGroupName}-Node', !Ref MangedNodeGroupLabel ]
         PropagateAtLaunch: true
       Subnets: !If
       - 3AZDeployment
@@ -1044,9 +1119,14 @@ Resources:
         - 2AZDeployment
         - [ !Ref PrivateSubnet1ID, !Ref PrivateSubnet2ID ]
         - [ !Ref PrivateSubnet1ID ]
+      RemoteAccess:
+        Ec2SshKey: !Ref KeyPairName
 Outputs:
   EKSNodeSecurityGroup:
-    Value: !Ref NodeSecurityGroup
+    Value: !If
+      - DisableManagedNodeGroup
+      - !Ref NodeSecurityGroup
+      - !If [ EnableManagedNodeGroup, !Ref NodeSG, "" ]
   NodeAutoScalingGroup:
     Value: !If
       - DisableManagedNodeGroup
