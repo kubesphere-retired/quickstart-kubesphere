@@ -55,7 +55,6 @@ Resources:
           S3Bucket: !If [UsingDefaultBucket, !Sub '${QSS3BucketName}-${AWS::Region}', !Ref QSS3BucketName]
       Parameters:
         KubeManifestLambdaArn: !GetAtt KubeManifestLambda.Arn
-        HelmLambdaArn: !GetAtt HelmLambda.Arn
         KubeClusterName: !Ref KubeClusterName
         NodeInstanceProfile: !Ref NodeInstanceProfile
   CopyZips:
@@ -253,7 +252,7 @@ Resources:
               Service: lambda.amazonaws.com
             Action: sts:AssumeRole
       ManagedPolicyArns:
-        - !Su  'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+        - !Sub  'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
       Policies:
         - PolicyName: lambda-copier
           PolicyDocument:
@@ -287,7 +286,7 @@ Resources:
               - Effect: Allow
                 Action: s3:GetObject
                 Resource: !Sub
-                  - "arn:${AWS::Partition}:s3:::${BucketName}/*"
+                  - 'arn:${AWS::Partition}:s3:::${BucketName}/*'
                   - S3Bucket: !If [UsingDefaultBucket, !Sub '${QSS3BucketName}-${AWS::Region}', !Ref QSS3BucketName]
               - Effect: Allow
                 Action:

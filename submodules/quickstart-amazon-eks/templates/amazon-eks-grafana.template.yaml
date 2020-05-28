@@ -4,18 +4,14 @@ Metadata:
   QSLint:
     Exclusions: [W9002, W9003, W9004, W9006]
 Parameters:
-  HelmLambdaArn:
-    Type: String
   ClusterName:
     Type: String
 Resources:
   # Install grafana helm chart
   GrafanaHelmChart:
-    Type: "Custom::Helm"
-    Version: "1.0"
+    Type: "AWSQS::Kubernetes::Helm"
     Properties:
-      ServiceToken: !Ref HelmLambdaArn
-      ClusterName: !Ref ClusterName
+      ClusterID: !Ref ClusterName
       Namespace: grafana
       Chart: stable/grafana
       Name: grafana

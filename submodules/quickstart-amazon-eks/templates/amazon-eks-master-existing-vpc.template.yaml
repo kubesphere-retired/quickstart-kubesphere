@@ -39,6 +39,7 @@ Metadata:
           - NodeVolumeSize
           - ManagedNodeGroup
           - ManagedNodeGroupAMIType
+          - MangedNodeGroupLabel
           - AdditionalEKSAdminUserArn
           - AdditionalEKSAdminRoleArn
           - KubernetesVersion
@@ -52,6 +53,7 @@ Metadata:
       - Label:
           default: Optional Kubernetes add-ins
         Parameters:
+          - ALBIngressController
           - ClusterAutoScaler
           - EfsStorageClass
           - EfsPerformanceMode
@@ -77,9 +79,11 @@ Metadata:
       NodeVolumeSize:
         default: Node volume size
       ManagedNodeGroup:
-        default: Managed Node Group
+        default: Managed node group
       ManagedNodeGroupAMIType:
-        default: Managed Node Group AMI Type
+        default: Managed node group AMI type
+      MangedNodeGroupLabel:
+        default: Managed node group label
       PublicSubnet1ID:
         default: Public subnet 1 ID
       PublicSubnet2ID:
@@ -95,9 +99,9 @@ Metadata:
       VPCID:
         default: VPC ID
       AdditionalEKSAdminUserArn:
-        default: Additional EKS admin ARN (IAM User)
+        default: Additional EKS admin ARN (IAM user)
       AdditionalEKSAdminRoleArn:
-        default: Additional EKS admin ARN (IAM Role)
+        default: Additional EKS admin ARN (IAM role)
       KubernetesVersion:
         default: Kubernetes version
       LambdaZipsBucketName:
@@ -113,7 +117,9 @@ Metadata:
       EfsProvisionedThroughputInMibps:
         default: EFS provisioned throughput in Mibps
       ProvisionBastionHost:
-        default: Provision Bastion Host
+        default: Provision bastion host
+      ALBIngressController:
+        default: ALB ingress controller
 Parameters:
   KeyPairName:
     Description: The name of an existing public/private key pair, which allows you
@@ -267,10 +273,14 @@ Parameters:
     AllowedValues: [ "AL2_x86_64", " AL2_x86_64_GPU", ""]
     Default: "AL2_x86_64"
     Type: String
+  MangedNodeGroupLabel:
+    Description: Add a custom name label to the Managed Node Group Nodes. If you dont do this then a default one will be added for you.
+    Type: String
+    Default: ''
   KubernetesVersion:
     Type: String
-    AllowedValues: [ "1.15", "1.14", "1.13" ]
-    Default: "1.15"
+    AllowedValues: [ "1.16", "1.15", "1.14", "1.13" ]
+    Default: "1.16"
     Description: The Kubernetes control plane version.
   LambdaZipsBucketName:
     Description: '[OPTIONAL] The name of the S3 bucket where the Lambda zip files should be placed. If you leave this parameter blank, an S3 bucket will be created.'
@@ -325,6 +335,7 @@ Parameters:
   EfsProvisionedThroughputInMibps:
     Type: Number
     MinValue: 0
+    MaxValue: 1024
     Default: 0
     Description: Set to 0 if EfsThroughputMode is set to bursting. Only has an effect when EfsStorageClass is enabled.
   HttpProxy:
@@ -336,13 +347,18 @@ Parameters:
     AllowedValues: [ "Enabled", "Disabled" ]
     Default: "Enabled"
     Description: "Skip creating a bastion host by setting this is set to Disabled."
+  ALBIngressController:
+    Type: String
+    AllowedValues: [ "Enabled", "Disabled" ]
+    Default: "Disabled"
+    Description: "Set ths to Enabled to deploy the ALB ingress controller."
 Rules:
   EKSVersion_ManagedNodeGrou:
     RuleCondition: !Equals [ !Ref 'ManagedNodeGroup', 'yes' ]
     Assertions:
       - AssertDescription: To use Managed Node Groups you must use EKS version 1.14 or higher
         Assert: !Contains
-          - [ '1.14', '1.15' ]
+          - [ '1.14', '1.15', '1.16' ]
           - !Ref 'KubernetesVersion'
   ClusterAutoScalerVerification:
     RuleCondition: !Equals [ !Ref 'ManagedNodeGroup', 'yes' ]
@@ -356,6 +372,8 @@ Conditions:
 Resources:
   EKSStack:
     Type: AWS::CloudFormation::Stack
+    Metadata:
+      cfn-lint: { config: { ignore_checks: [ W9901 ] } }
     Properties:
       TemplateURL: !Sub
         - 'https://${S3Bucket}.s3.${S3Region}.${AWS::URLSuffix}/${QSS3KeyPrefix}templates/amazon-eks.template.yaml'
@@ -379,6 +397,7 @@ Resources:
         NodeVolumeSize: !Ref NodeVolumeSize
         ManagedNodeGroup: !Ref ManagedNodeGroup
         ManagedNodeGroupAMIType: !Ref ManagedNodeGroupAMIType
+        MangedNodeGroupLabel: !Ref MangedNodeGroupLabel
         LambdaZipsBucketName: !Ref LambdaZipsBucketName
         NodeInstanceType: !Ref NodeInstanceType
         RemoteAccessCIDR: !Ref RemoteAccessCIDR
@@ -398,9 +417,8 @@ Resources:
         EKSClusterLoggingTypes: !Join [ ',', !Ref 'EKSClusterLoggingTypes' ]
         EKSEncryptSecrets: !Ref EKSEncryptSecrets
         EKSEncryptSecretsKmsKeyArn: !Ref EKSEncryptSecretsKmsKeyArn
+        ProvisionALBIngressController: !Ref ALBIngressController
 Outputs:
-  HelmLambdaArn:
-    Value: !GetAtt EKSStack.Outputs.HelmLambdaArn
   KubeManifestLambdaArn:
     Value: !GetAtt EKSStack.Outputs.KubeManifestLambdaArn
   KubeGetLambdaArn:

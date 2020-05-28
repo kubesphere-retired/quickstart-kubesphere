@@ -36,6 +36,7 @@ Resources:
       KubeConfigPath: !Ref KubeConfigPath
       # context for KMS to use when decrypting the file
       KubeConfigKmsContext: !Ref KubeConfigKmsContext
+      ClusterName: !Ref KubeClusterName
       # Kubernetes manifest
       Manifest:
         apiVersion: v1
@@ -53,6 +54,7 @@ Resources:
       KubeConfigPath: !Ref KubeConfigPath
       # context for KMS to use when decrypting the file
       KubeConfigKmsContext: !Ref KubeConfigKmsContext
+      ClusterName: !Ref KubeClusterName
       # Kubernetes manifest
       Manifest: !Sub |
         apiVersion: v1
@@ -129,6 +131,7 @@ Resources:
       KubeConfigPath: !Ref KubeConfigPath
       # context for KMS to use when decrypting the file
       KubeConfigKmsContext: !Ref KubeConfigKmsContext
+      ClusterName: !Ref KubeClusterName
       # Kubernetes manifest
       Manifest:
         apiVersion: v1
@@ -147,6 +150,7 @@ Resources:
       KubeConfigPath: !Ref KubeConfigPath
       # context for KMS to use when decrypting the file
       KubeConfigKmsContext: !Ref KubeConfigKmsContext
+      ClusterName: !Ref KubeClusterName
       # Kubernetes manifest
       Manifest:
         apiVersion: rbac.authorization.k8s.io/v1
@@ -254,6 +258,7 @@ Resources:
       KubeConfigPath: !Ref KubeConfigPath
       # context for KMS to use when decrypting the file
       KubeConfigKmsContext: !Ref KubeConfigKmsContext
+      ClusterName: !Ref KubeClusterName
       # Kubernetes manifest
       Manifest:
         kind: ClusterRoleBinding
@@ -279,6 +284,7 @@ Resources:
       KubeConfigPath: !Ref KubeConfigPath
       # context for KMS to use when decrypting the file
       KubeConfigKmsContext: !Ref KubeConfigKmsContext
+      ClusterName: !Ref KubeClusterName
       # Kubernetes manifest
       Manifest:
         apiVersion: apps/v1
@@ -314,6 +320,7 @@ Resources:
       KubeConfigPath: !Ref KubeConfigPath
       # context for KMS to use when decrypting the file
       KubeConfigKmsContext: !Ref KubeConfigKmsContext
+      ClusterName: !Ref KubeClusterName
       # Kubernetes manifest
       Manifest:
         apiVersion: v1
@@ -346,6 +353,7 @@ Resources:
       ServiceToken: !Ref KubeGetLambdaArn
       KubeConfigPath: !Ref KubeConfigPath
       KubeConfigKmsContext: !Ref KubeConfigKmsContext
+      ClusterName: !Ref KubeClusterName
       Namespace: kubesphere-system
       Name: 'svc/ks-console'
       JsonPath: '{.status.loadBalancer.ingress[0].hostname}'  
